@@ -4,4 +4,5 @@ ccxt==4.5.22
 pydantic==2.12.3
 httpx==0.28.1
 pytest==8.4.2
-pytest-asyncio==1.2.0google-genai>=1.0.0
+pytest-asyncio==1.2.0
+google-genai>=1.0.0
