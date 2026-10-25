@@ -1,3 +1,4 @@
+
 export type Market = {
   symbol: string;
   timeframes: string[];
@@ -42,6 +43,7 @@ export type LiquidityEvent = {
   timestamp: string;
   level_id?: string;
   level_price?: number;
+  level_swept?: number | string;
   detected_at?: string;
 };
 
@@ -77,5 +79,3 @@ export type ApiErrorBody = {
   detail: string;
   code: string;
 };
-
-// END OF FILE frontend/src/types/market.ts
