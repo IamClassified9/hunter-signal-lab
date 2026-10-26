@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import re
 from datetime import datetime, timezone
 from typing import Any
 
@@ -12,6 +13,23 @@ from google.genai import types
 BRIEF_TEMPERATURE = 0.2
 BRIEF_MODEL = os.getenv("BRIEF_MODEL", "").strip()
 ALLOW_TEMPLATE_FALLBACK = os.getenv("ALLOW_TEMPLATE_FALLBACK", "false").strip().lower() == "true"
+
+
+def _format_timestamps_in_text(text: str) -> str:
+    """Render ISO-8601 timestamps in brief prose as readable UTC dates."""
+    timestamp_pattern = re.compile(
+        r"\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|\+00:00)\b"
+    )
+
+    def format_match(match: re.Match[str]) -> str:
+        value = match.group(0)
+        try:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            return parsed.astimezone(timezone.utc).strftime("%d %b %Y, %H:%M:%S UTC")
+        except ValueError:
+            return value
+
+    return timestamp_pattern.sub(format_match, text)
 
 
 def _event_evidence(event: dict[str, Any]) -> dict[str, Any]:
@@ -247,6 +265,12 @@ async def generate_brief(events: list[dict[str, Any]]) -> dict[str, Any]:
     try:
         answer = await _request_gemma(prompt)
         summary, explanations = _parse_model_json(answer, selected)
+        # Keep timestamps in the evidence payload unchanged; format only the prose shown in the UI.
+        summary = [_format_timestamps_in_text(line) for line in summary]
+        explanations = [
+            [_format_timestamps_in_text(sentence) for sentence in sentences]
+            for sentences in explanations
+        ]
         source = "gemma"
         model = BRIEF_MODEL
         fallback_reason = None
