@@ -1,145 +1,178 @@
 # Hunter Signal Lab
 
-Detects **liquidity events** (sweeps, grabs, breakouts, failed breakouts) on real crypto
-candles and shows them on a live chart. This is **Phase 1: the foundation**. It records
-what happened. It does not predict what happens next.
+Hunter Signal Lab detects **liquidity events**—sweeps, grabs, breakouts, and failed breakouts—from real crypto candles and displays the evidence on an interactive chart.
 
-**Live demo:** `<YOUR-FRONTEND-URL>`  
-**API:** `<YOUR-BACKEND-URL>/docs`  
-Free hosting sleeps when idle, so the first load can take 30 to 60 seconds.
+**Current scope: Phase 1 — event detection and evidence review.** The system records and explains observed market events; it does not predict future prices or generate trade signals.
+
+## Live deployment
+
+- **Live dashboard:** https://hunter-signal-lab-web.onrender.com
+- **Backend API:** https://hunter-signal-lab-api.onrender.com/
+- **Interactive API documentation:** https://hunter-signal-lab-api.onrender.com/docs
+- **Source code:** https://github.com/IamClassified9/hunter-signal-lab
+
+The services use free hosting, which may sleep while idle. The first request after inactivity can take 30–60 seconds.
 
 ## What it does
 
-- Fetches **closed** OHLCV candles from a public exchange API through CCXT (no API keys).
-- Finds swing highs and lows, and clusters of equal highs and lows, as liquidity levels.
-- Detects five event types with explicit rules, using only information that was
-  available at the time (no look-ahead).
-- Serves everything through a tested FastAPI backend and a React + TypeScript dashboard.
+- Fetches closed OHLCV candles from a public exchange through CCXT; no exchange API keys are required for public market data.
+- Identifies swing highs and lows, plus equal-high/equal-low liquidity levels.
+- Detects five event types using explicit rules and information available at the time, avoiding look-ahead in event detection.
+- Exposes market data and analysis through a FastAPI backend and a React + TypeScript dashboard.
+- Displays candles, liquidity levels, and event markers on the chart, with timestamps in UTC.
+- Provides a watchlist stored in the current browser, a Top 5 event-priority view, event search and filtering, JSON export, and an evidence-focused brief.
 
-## What it does NOT do (yet)
+## What it does not do yet
 
-- **No predictions.** The "TabPFN prediction engine" panel says *Not connected* on purpose.
-  Predictions will only be added after we measure what price did after each event and
-  test whether any model beats a simple baseline.
-- No database (history is whatever the current candle window contains).
-- No login or accounts. The watchlist lives in your browser only (not synced across devices).
-- No background monitoring or alerts. No trading.
-- Only the configured symbols: six USDT pairs by default (BTC, ETH, SOL, BNB, XRP, DOGE).
+- **No predictive model is connected.** The dashboard's “Prediction engine (later phase)” panel is intentionally marked **Not Connected**.
+- **TabPFN was removed from the current implementation.** There was not enough time in this delivery window to implement and validate the full outcome-labeling and prediction workflow. A meaningful prediction model needs a defined target (what counts as an outcome), historical events paired with what price did afterward, leakage-safe features, and evaluation against a simple baseline. Adding a model before those pieces are implemented and tested would risk presenting unvalidated results as predictions. TabPFN remains a possible future option, not a working feature in this release.
+- No persistent database: available event history depends on the current candle window.
+- No user accounts or login. The watchlist is stored in browser local storage and is not synced across devices.
+- No background monitoring, alerts, or automated trading.
+- The default configured market list contains six USDT pairs: BTC, ETH, SOL, BNB, XRP, and DOGE.
 
 ## Dashboard
 
-- Candlestick chart with liquidity levels and event markers (all times UTC).
-- **Top 5 events (last 24 hours):** ranked by volume ratio only. It is an event-priority
-  list, **not a prediction or a trade signal**. Click an item to open it.
-- **Watchlist:** star a coin to keep it handy; filter the Top 5 to your watchlist.
-  Saved in your browser's local storage, no login.
-- Event explorer with search and type filter, and a JSON export of the selected view.
+- **Signal overview:** summary metrics and event activity for the selected market and timeframe.
+- **Liquidity chart:** candlesticks with detected liquidity levels and event markers.
+- **Top 5 events (last 24 hours):** ranked by volume ratio only. This is an event-priority list, **not a prediction or trade signal**. Select an event to inspect it.
+- **Watchlist:** star pairs to keep them handy and optionally filter the Top 5 list to watched pairs. The watchlist is stored in this browser only; no login is required.
+- **Event explorer:** search and filter recorded events, inspect supplied event attributes, and export the selected view as JSON.
+- **Liquidity brief:** an evidence-focused explanation of selected detected events. It is not a price forecast. If the configured Gemma service is unavailable, behavior depends on the backend's template-fallback setting.
 
 ## API
 
+Interactive documentation: https://hunter-signal-lab-api.onrender.com/docs
+
 | Endpoint | Returns |
 |---|---|
-| `GET /health` | status and exchange |
-| `GET /api/markets` | supported symbols and timeframes |
-| `GET /api/candles?symbol=&timeframe=&limit=` | closed candles |
-| `GET /api/analysis?symbol=&timeframe=&limit=` | levels and events for one market |
-| `GET /api/events` | events across markets, newest first (filters: symbol, timeframe, event_type, limit) |
-| `GET /api/events/{event_id}` | one event |
-| `GET /api/summary` | counts by type |
-| `GET /brief?symbols=BTC/USDT,ETH/USDT` | two-sentence evidence brief for the top three watchlist events; returns a clear error if Gemma is unavailable (template fallback is opt-in) |
+| `GET /health` | Service status and exchange information |
+| `GET /api/markets` | Supported symbols and timeframes |
+| `GET /api/candles?symbol=&timeframe=&limit=` | Closed candles |
+| `GET /api/analysis?symbol=&timeframe=&limit=` | Liquidity levels and events for one market |
+| `GET /api/events` | Events across markets, newest first; supports symbol, timeframe, event type, and limit filters |
+| `GET /api/events/{event_id}` | A single event |
+| `GET /api/summary` | Event and market summary counts |
+| `GET /brief?symbols=BTC/USDT,ETH/USDT` | Evidence brief for up to the top three relevant events, subject to configured brief service and fallback behavior |
 
-Timeframes: `5m`, `15m`, `1h`, `4h`. Errors return `{"detail": "...", "code": "..."}`.
-
-## Gemma brief configuration
-
-The backend uses Google's Gen AI SDK to call the Gemma model configured by `BRIEF_MODEL` in `backend/.env`. Keep `GEMMA_API_KEY` in the backend environment only; never place model names or provider API keys in the frontend environment. The frontend only needs `VITE_API_BASE_URL`.
-
-Template fallback is disabled by default. If Gemma fails or returns invalid output, the API returns an HTTP error containing the reason and the UI displays it in red. To explicitly permit deterministic template fallback, set `ALLOW_TEMPLATE_FALLBACK=true` in the backend environment; otherwise leave it unset or set it to `false`.
+Supported timeframes: `5m`, `15m`, `1h`, and `4h`. API errors use a JSON response with `detail` and `code` fields where provided by the application.
 
 ## Event rules
 
-Defaults: swing bars **N = 3**, equal-level tolerance **0.10%**, confirmation window
-**K = 3** candles, breakout buffer **0.10%**, volume lookback **20**.
-These are project choices, **not industry standards, and they have not been backtested**.
+Default parameters:
 
-- Only closed candles are analysed, and they must be exactly one timeframe apart.
-- A swing high has a strictly higher high than the N candles on each side. It becomes
-  usable only after the N-th candle to its right has closed.
-- Same-side swings within the tolerance merge into an equal-highs / equal-lows cluster,
-  but only if nobody has pierced the level yet.
-- A level resolves once, on the first candle that pierces it (high side shown; low side mirrors):
-  1. Close above the level plus the buffer: **BREAKOUT**. If a close at or below the
-     level follows within K candles: **FAILED_BREAKOUT**.
-  2. Close at or below the level, single swing: **SWING_HIGH_SWEEP**.
-  3. Close at or below the level, cluster: **LIQUIDITY_GRAB**.
-  4. Close between the level and the buffer, single swing: no event.
-  5. Close between the level and the buffer, cluster: wait up to K candles for a grab or breakout.
-- Every event has `timestamp` (open of the triggering candle) and `detected_at` (its
-  close, when it became knowable). Use `detected_at` for any backtest.
-- Tests compare `analyse(candles[:n])` with the full run for every n, to prove no
-  event depends on future candles.
+- Swing bars: **N = 3**
+- Equal-level tolerance: **0.10%**
+- Confirmation window: **K = 3 candles**
+- Breakout buffer: **0.10%**
+- Volume lookback: **20 candles**
+
+These are project-specific choices, not industry standards, and have not been established as profitable through backtesting.
+
+- Only closed candles are analysed, and candles must be exactly one timeframe apart.
+- A swing high must exceed the highs of the N candles on either side. It becomes usable only after the Nth candle to its right closes.
+- Same-side swings within the tolerance can merge into equal-high/equal-low clusters, provided the level has not already been pierced.
+- A level resolves on its first qualifying pierce. High-side rules are mirrored for low-side levels:
+  1. A close above the level plus the buffer is a **breakout**. If a close at or below the level follows within K candles, it can be classified as a **failed breakout**.
+  2. A close at or below the level for a single swing produces a **swing sweep**.
+  3. A close at or below the level for a cluster produces a **liquidity grab**.
+  4. A close between the level and buffer for a single swing produces no event.
+  5. For a cluster closing between the level and buffer, the engine waits up to K candles for a grab or breakout.
+- Each event has `timestamp` (the triggering candle's open) and `detected_at` (when the event became knowable at candle close). Use `detected_at` for any future outcome evaluation or backtesting.
+- The test suite compares `analyse(candles[:n])` with the full run for each tested prefix to check that event detection does not depend on future candles.
+
+## Gemma brief configuration
+
+The backend uses Google's Gen AI SDK to call the configured Gemma model. `BRIEF_MODEL` selects the model, and `GEMMA_API_KEY` must remain in the backend environment—never put provider API keys in frontend code or frontend environment variables. The frontend uses `VITE_API_BASE_URL` to locate the backend.
+
+Template fallback is disabled by default. If Gemma fails or returns invalid output, the API returns an HTTP error unless deterministic template fallback is explicitly enabled with `ALLOW_TEMPLATE_FALLBACK=true` in the backend environment. Leave it unset or set it to `false` to keep fallback disabled.
+
+The brief is intended to explain the supplied event evidence, not to forecast price. The backend may include a server-generated chart snapshot with an event and linked liquidity level marked. The snapshot is generated locally by the backend rather than through an external chart-image service.
 
 ## Run locally (Windows PowerShell)
 
+Open two terminals from the repository root.
+
+**Backend terminal:**
+
 ```powershell
-# backend
 cd backend
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
 uvicorn main:app --port 8000
-
-# frontend (second window)
-cd frontend
-npm install
-npm run dev        # http://localhost:5173
 ```
 
-Tests: `cd backend; python -m pytest -q` (no network needed; the exchange is mocked).
+**Frontend terminal:**
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+Vite normally serves the frontend at `http://localhost:5173`.
+
+Run backend tests from the repository root:
+
+```powershell
+cd backend
+python -m pytest -q
+```
+
+The test suite mocks exchange access so tests do not require live exchange requests.
 
 ## Configuration
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `HUNTER_EXCHANGE` | `binance` | CCXT exchange id |
-| `HUNTER_SYMBOLS` | `BTC/USDT,ETH/USDT,SOL/USDT,BNB/USDT,XRP/USDT,DOGE/USDT` | symbol allowlist (each coin adds exchange requests) |
-| `HUNTER_CACHE_TTL` | `15` | seconds to cache exchange responses |
-| `HUNTER_EVENT_TIMEFRAMES` | `15m,1h` | timeframes used by `/api/events` |
-| `HUNTER_CORS_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173` | allowed browser origins |
-| `VITE_API_BASE_URL` | `http://localhost:8000` | backend URL baked into the frontend at build time |
+| `HUNTER_EXCHANGE` | `binance` | CCXT exchange ID |
+| `HUNTER_SYMBOLS` | `BTC/USDT,ETH/USDT,SOL/USDT,BNB/USDT,XRP/USDT,DOGE/USDT` | Configured symbol allowlist; each additional pair increases exchange requests |
+| `HUNTER_CACHE_TTL` | `15` | Exchange-response cache lifetime in seconds |
+| `HUNTER_EVENT_TIMEFRAMES` | `15m,1h` | Timeframes used by `/api/events` |
+| `HUNTER_CORS_ORIGINS` | `http://localhost:5173,http://127.0.0.1:5173` | Allowed browser origins; include the deployed frontend origin in production |
+| `VITE_API_BASE_URL` | `http://localhost:8000` | Backend URL baked into the frontend at build time |
 
 ## Deploy on Render
 
-`render.yaml` defines a Python web service (backend) and a static site (frontend).
+The `render.yaml` blueprint defines a Python backend service and a static frontend site.
 
-1. Push the repo to GitHub. In Render choose **New, Blueprint** and select the repo.
-2. Keep the backend in **Frankfurt or Singapore**. Some exchanges block US servers.
-3. After the backend is live, set the static site's `VITE_API_BASE_URL` to the backend URL
-   and redeploy (the value is baked in at build time).
-4. Set the backend's `HUNTER_CORS_ORIGINS` to the frontend URL.
-5. Check `<backend>/api/candles?symbol=BTC/USDT&timeframe=15m&limit=5`. If the exchange
-   is blocked from your region, set `HUNTER_EXCHANGE` to another CCXT id and redeploy.
+1. Push the repository to GitHub and create a Render Blueprint from the repository.
+2. Choose a backend region supported by the exchange access available to the service.
+3. Set the frontend service's `VITE_API_BASE_URL` to `https://hunter-signal-lab-api.onrender.com` and redeploy the frontend. This value is baked in at build time.
+4. Set the backend's `HUNTER_CORS_ORIGINS` to `https://hunter-signal-lab-web.onrender.com`.
+5. Verify the backend health endpoint and API documentation:
+   - https://hunter-signal-lab-api.onrender.com/health
+   - https://hunter-signal-lab-api.onrender.com/docs
 
-## Gemma brief and chart snapshots
+If the exchange is blocked or unavailable from the service region, configure `HUNTER_EXCHANGE` to another supported CCXT exchange and redeploy.
 
-Click **Brief** to request an evidence-only explanation of the top three detected events. The API reports Gemma service status at `/api/ai/health`; `/health` includes the same Gemma health result. If Gemma is unavailable or returns invalid output, the API returns a clear error by default rather than silently using a template. Template fallback is available only when `ALLOW_TEMPLATE_FALLBACK=true` is explicitly set in the backend environment. Each selected event can include a server-rendered SVG chart snapshot with the event price and linked level marked. Snapshots are generated locally by the backend and embedded in the brief response, so no chart-image service is used. Export report includes the brief and snapshot data URIs when a brief has been generated.
+## Roadmap
 
+The roadmap prioritizes validating the existing event engine and building reliable outcomes before adding prediction or account features.
+
+1. **Validate the deployed foundation**
+   - Verify the frontend-to-backend connection, CORS configuration, and exchange data access.
+   - Keep the event chart, linked liquidity levels, event details, and UTC timestamps consistent with the API response.
+2. **Build historical outcome measurement**
+   - Persist or reproducibly collect detected events and the candles following each event.
+   - Define outcome horizons and labels before training a model.
+   - Use `detected_at` to prevent using information that was not available when an event was detected.
+3. **Evaluate prediction feasibility**
+   - Establish a simple baseline and leakage-safe evaluation split.
+   - Consider TabPFN or another suitable model only after outcome labels and evaluation are implemented.
+   - Report measured results and limitations; do not expose predictions as reliable until validated.
+4. **Add persistent event history**
+   - Store events and supporting market data so records survive beyond the active candle window.
+5. **Add monitoring and alerts**
+   - Consider scheduled background analysis, notifications, and configurable reporting after data reliability is established.
+6. **Consider user accounts only if needed**
+   - Introduce authentication when the product needs server-side per-user watchlists, saved settings, or other private synced data. Login is not a goal by itself.
 
 ## Known limitations
 
-- No database: an event ID stops resolving once its candle leaves the current window (about 500 candles).
-- A breakout can gain a FAILED_BREAKOUT up to K candles later. Events never change once emitted.
-- Thresholds are fixed percentages. They are not scaled by volatility.
-- Results depend on the candle window: the same candle can be classified differently if an older swing falls outside the window, so counts can differ slightly between views.
-- Event counts are observations, not signals. Nothing here is financial advice.
-
-## Roadmap (not built yet)
-
-- Watchlist synced across devices (needs accounts)
-- Market search and more coins than the default six
-- Persistent event history
-- Outcome measurement (what price did after each event, using `detected_at` only)
-- Volatility-scaled thresholds (ATR)
-- Prediction models (TabPFN) **only after** outcome evaluation exists
-- Login, only when there is per-user data to protect
-- Background monitoring, ranking and reports
+- There is no database, so event history is limited to the active candle window; an event may stop resolving after its source candles leave that window.
+- A breakout can later be followed by a failed-breakout event within K candles. The engine does not revise already emitted events.
+- Thresholds are fixed percentages and are not volatility-scaled.
+- Results depend on the candle window. A candle can be classified differently if an older swing falls outside the window, so event counts may vary between views.
+- Event rankings and event counts describe observations; they are not trade signals. Nothing here is financial advice.
