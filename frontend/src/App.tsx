@@ -511,7 +511,7 @@ function App() {
                     <span>Linked level <strong>{typeof item.evidence.level_price === "number" ? formatPrice(item.evidence.level_price) : "Not supplied"}</strong></span>
                     <span>Volume ratio <strong>{typeof item.evidence.volume_ratio === "number" ? `${item.evidence.volume_ratio.toFixed(2)}×` : "Not supplied"}</strong></span>
                     <span>Structure <strong>{item.evidence.structure ?? "Not supplied"}</strong></span>
-                    <span>Level status <strong>{item.evidence.level_swept === true ? "Swept" : item.evidence.level_swept === false ? "Unswept" : "Not supplied"}</strong></span>
+                    <span>Level status <strong>{"level_swept" in item.evidence ? (item.evidence.level_swept === true ? "Swept" : item.evidence.level_swept === false ? "Unswept" : "Not supplied") : "Not supplied"}</strong></span>
                     <span>Event time <strong>{item.evidence.timestamp ? formatUtcTime(item.evidence.timestamp) : "Not supplied"}</strong></span>
                     <span>Detected <strong>{item.evidence.detected_at ? formatUtcTime(item.evidence.detected_at) : "Not supplied"}</strong></span>
                   </div>
@@ -691,5 +691,3 @@ function DetailField({ label, value }: { label: string; value: string }) {
 }
 
 export default App;
-
-// END OF FILE frontend/src/App.tsx
